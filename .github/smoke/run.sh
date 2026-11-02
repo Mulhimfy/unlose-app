@@ -60,6 +60,10 @@ if command -v ffmpeg >/dev/null; then
 fi
 rm -rf "$S"
 
+# Animations off: Flutter reports "disable animations" and Unlose holds its loops still,
+# so the accessibility tree goes idle and uiautomator can read it.
+for k in window_animation_scale transition_animation_scale animator_duration_scale; do adb shell settings put global $k 0; done
+
 # ---- install, grant ----
 adb install -r "$APK" | tail -1 | tee -a "$LOG"
 adb shell appops set --uid $PKG MANAGE_EXTERNAL_STORAGE allow
@@ -68,13 +72,19 @@ adb logcat -c
 
 shot() {
   sleep "${2:-0}"
-  adb exec-out screencap -p > "$OUT/$1.png"
-  say "shot $1"
+  timeout 20 adb exec-out screencap -p > "$OUT/$1.png"
+  say "shot $1 ($(stat -c %s "$OUT/$1.png") bytes)"
 }
-dump() { adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb exec-out cat /sdcard/ui.xml > "$OUT/ui.xml" 2>/dev/null; }
+alive() { [ "$(timeout 10 adb get-state 2>/dev/null)" = device ]; }
+dump() {
+  rm -f "$OUT/ui.xml"
+  timeout 25 adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
+  timeout 10 adb exec-out cat /sdcard/ui.xml > "$OUT/ui.xml" 2>/dev/null
+}
 # tap the centre of the first node whose text or content-desc contains $1
 tap() {
-  local want=$1 tries=${2:-6}
+  local want=$1 tries=${2:-4}
+  alive || { say "device gone before '$want'"; return 1; }
   for _ in $(seq "$tries"); do
     dump
     local b
@@ -145,6 +155,9 @@ tap "Settings"; shot 19_settings 3
 tap "Light"; shot 20_light 3
 adb shell input keyevent KEYCODE_BACK; sleep 2
 shot 21_home_light 2
+
+# A scan with animations on, for a look at the real motion (no taps needed).
+alive && { for k in window_animation_scale transition_animation_scale animator_duration_scale; do adb shell settings put global $k 1; done; }
 
 adb shell dumpsys meminfo $PKG | grep -E "TOTAL|Java Heap|Native Heap|Graphics" > "$OUT/meminfo.txt" || true
 adb logcat -d > "$OUT/logcat.txt"
