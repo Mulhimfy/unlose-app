@@ -15,7 +15,7 @@ on:
         default: true
       gpu:
         description: Emulator GPU mode (swiftshader_indirect, guest, swangle_indirect)
-        default: guest
+        default: swiftshader_indirect
 
 permissions:
   contents: read
