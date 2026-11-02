@@ -13,6 +13,9 @@ LOG="$OUT/steps.txt"
 say() { echo "$*" | tee -a "$LOG"; }
 
 adb wait-for-device
+# Logcat streams to a file from the start, so a freeze or crash still leaves its last lines.
+adb logcat -v time > "$OUT/logcat_live.txt" 2>&1 &
+LOGCAT_PID=$!
 adb shell settings put global hide_error_dialogs 1
 adb shell input keyevent KEYCODE_HOME
 sleep 20
@@ -68,7 +71,6 @@ for k in window_animation_scale transition_animation_scale animator_duration_sca
 adb install -r "$APK" | tail -1 | tee -a "$LOG"
 adb shell appops set --uid $PKG MANAGE_EXTERNAL_STORAGE allow
 adb shell appops get $PKG MANAGE_EXTERNAL_STORAGE | tee -a "$LOG"
-adb logcat -c
 
 shot() {
   sleep "${2:-0}"
@@ -159,8 +161,8 @@ shot 21_home_light 2
 # A scan with animations on, for a look at the real motion (no taps needed).
 alive && { for k in window_animation_scale transition_animation_scale animator_duration_scale; do adb shell settings put global $k 1; done; }
 
-adb shell dumpsys meminfo $PKG | grep -E "TOTAL|Java Heap|Native Heap|Graphics" > "$OUT/meminfo.txt" || true
-adb logcat -d > "$OUT/logcat.txt"
-grep -E "FATAL EXCEPTION|E/flutter|ANR in|AndroidRuntime" "$OUT/logcat.txt" | head -60 > "$OUT/errors.txt" || true
+timeout 20 adb shell dumpsys meminfo $PKG | grep -E "TOTAL|Java Heap|Native Heap|Graphics" > "$OUT/meminfo.txt" || true
+kill $LOGCAT_PID 2>/dev/null || true
+grep -E "FATAL EXCEPTION|E/flutter|ANR in|AndroidRuntime|unlose" "$OUT/logcat_live.txt" | head -120 > "$OUT/errors.txt" || true
 say "errors: $(wc -l < "$OUT/errors.txt")"
 exit 0
