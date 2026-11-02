@@ -140,14 +140,14 @@ tap "Recover"
 shot 10_recovering 1
 sleep 8
 shot 11_recovered
-adb shell ls -la /sdcard/DCIM/Unlose /sdcard/Documents/Unlose /sdcard/Music/Unlose > "$OUT/restored_files.txt" 2>&1
+adb shell ls -la "/sdcard/DCIM/Photos\ Recovery" "/sdcard/Documents/Photos\ Recovery" "/sdcard/Music/Photos\ Recovery" > "$OUT/restored_files.txt" 2>&1
 cat "$OUT/restored_files.txt" | tee -a "$LOG"
 tap "Done"; sleep 2
 tap "Files"; shot 12_files 3
 tap "Videos"; shot 13_videos 3
 adb shell input keyevent KEYCODE_BACK; sleep 2
 shot 14_home_after 2
-tap "Deep scan"; sleep 1
+tap "Deep"; sleep 1
 tap "Start scan"
 sleep 30
 shot 15_deep_done
