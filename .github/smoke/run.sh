@@ -66,6 +66,9 @@ rm -rf "$S"
 # Animations off: Flutter reports "disable animations" and Unlose holds its loops still,
 # so the accessibility tree goes idle and uiautomator can read it.
 for k in window_animation_scale transition_animation_scale animator_duration_scale; do adb shell settings put global $k 0; done
+# The emulator's vibrator HAL takes the whole emulator down on a haptic tap (seen on API 30 and 34):
+# turn system haptics off; Flutter's HapticFeedback respects it.
+adb shell settings put system haptic_feedback_enabled 0
 
 # ---- install, grant ----
 adb install -r "$APK" | tail -1 | tee -a "$LOG"
