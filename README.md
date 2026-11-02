@@ -1,6 +1,6 @@
 # unlose-app
 
-Build runner and website for **Unlose** (`com.unlose.app`), a photo and file recovery app for Android.
+Build runner and website for **Photos Recovery** (`com.unlose.app`), a photo and file recovery app for Android.
 
 This repository holds workflows and the public website only. A build run checks out the private
 app repository with a read-only deploy key, analyses and tests it, builds the signed release APKs
