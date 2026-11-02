@@ -13,6 +13,9 @@ on:
         description: Drive the APK on an emulator with seeded deleted files
         type: boolean
         default: true
+      gpu:
+        description: Emulator GPU mode (swiftshader_indirect, guest, swangle_indirect)
+        default: guest
 
 permissions:
   contents: read
@@ -108,7 +111,7 @@ jobs:
           profile: pixel_6
           ram-size: 4096M
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          emulator-options: -no-window -gpu ${{ inputs.gpu }} -noaudio -no-boot-anim -no-snapshot
           script: bash ci/.github/smoke/run.sh out/smoke.apk out/smoke app/test_preview/fixtures/photos
       - name: Seal
         if: always()
