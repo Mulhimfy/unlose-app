@@ -219,6 +219,22 @@ if [ -n "$SZ" ] && curl -sL -o /tmp/shizuku.apk "$SZ" && adb install -r /tmp/shi
   dump; say "inside-apps finds listed: $(grep -o 'Inside apps[^"]*' "$OUT/ui.xml" | head -1)"
   adb shell ps -A | grep -i unlose | tee -a "$LOG"
   adb shell ls -la "$TG" | tee -a "$LOG"
+  # What the Shizuku file service can see, next to what adb's shell sees.
+  FP=$(adb shell pidof com.unlose.app:files | tr -d '\r')
+  {
+    echo "--- adb shell"; adb shell id; adb shell cat /proc/self/status | grep -E "^(Uid|Gid|Groups)"
+    adb shell readlink /proc/self/ns/mnt
+    for d in /storage/emulated/0/Android/data /mnt/user/0/emulated/0/Android/data /data/media/0/Android/data /mnt/runtime/full/emulated/0/Android/data; do echo "ls $d: $(adb shell ls $d 2>&1 | head -3 | tr '\n' ' ')"; done
+    echo "--- file service pid $FP"
+    adb shell cat /proc/$FP/status | grep -E "^(Uid|Gid|Groups)"
+    adb shell readlink /proc/$FP/ns/mnt
+    adb shell cat /proc/$FP/attr/current; echo
+    adb shell cat /proc/$FP/mountinfo | grep -E "storage|emulated|/mnt/user|media" | head -20
+    SP=$(adb shell pidof shizuku_server | tr -d '\r')
+    echo "--- shizuku_server pid $SP"
+    adb shell cat /proc/$SP/status | grep -E "^(Uid|Gid|Groups)"
+    adb shell readlink /proc/$SP/ns/mnt
+  } > "$OUT/shizuku_probe.txt" 2>&1
   tap "Inside apps"; shot 36_inside_apps 3
 fi
 
