@@ -89,6 +89,25 @@ jobs:
             echo "bundle: FAILED"
           fi
           rm -f android/upload.p12 android/key.properties
+      - name: Card recovery tests
+        working-directory: app
+        run: |
+          sudo apt-get -qq update > /dev/null && sudo apt-get -qq install -y exfatprogs dosfstools > /dev/null
+          IMG=$(mktemp -d)
+          if bash tool/card_images.sh "$IMG" test_preview/fixtures/photos > ../out/card_images.txt 2>&1; then
+            cd android
+            if CARD_IMAGES="$IMG" ./gradlew --no-daemon -q :app:testDebugUnitTest --tests 'com.unlose.app.card.*' > ../../out/card_tests.txt 2>&1; then
+              echo "card tests: passed"
+            else
+              echo "card tests: FAILED"
+            fi
+            mkdir -p ../../out/card_reports
+            cp app/build/test-results/testDebugUnitTest/*.xml ../../out/card_reports/ 2>/dev/null || true
+            grep -h -oE 'testsuite name="[^"]+" tests="[0-9]+" skipped="[0-9]+" failures="[0-9]+" errors="[0-9]+"' ../../out/card_reports/*.xml || true
+          else
+            echo "card images: FAILED"; tail -20 ../out/card_images.txt
+          fi
+          sudo rm -rf "$IMG"
       - name: Permissions in the APK
         if: hashFiles('out/Unlose.apk') != ''
         run: |

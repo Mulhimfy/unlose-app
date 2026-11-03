@@ -88,14 +88,14 @@ dump() {
 }
 # tap the centre of the first node whose text or content-desc contains $1
 tap() {
-  local want=$1 tries=${2:-4}
+  local want=$1 tries=${2:-4} exact=${3:-}
   alive || { say "device gone before '$want'"; return 1; }
   for _ in $(seq "$tries"); do
     dump
     local b
-    b=$(python3 - "$want" "$OUT/ui.xml" <<'PY'
+    b=$(python3 - "$want" "$OUT/ui.xml" "$exact" <<'PY'
 import re, sys
-want, path = sys.argv[1], sys.argv[2]
+want, path, exact = sys.argv[1], sys.argv[2], sys.argv[3] == 'exact'
 try:
     xml = open(path, encoding='utf-8', errors='ignore').read()
 except OSError:
@@ -103,7 +103,11 @@ except OSError:
 for node in re.findall(r'<node [^>]*>', xml):
     t = re.search(r' text="([^"]*)"', node); d = re.search(r' content-desc="([^"]*)"', node)
     label = ((t.group(1) if t else '') + ' ' + (d.group(1) if d else '')).replace('&#10;', ' ')
-    if want.lower() in label.lower():
+    pkg = re.search(r' package="([^"]*)"', node)
+    if exact and (pkg is None or pkg.group(1) != 'com.unlose.app'):
+        continue
+    hit = (want in label.split()) if exact else (want.lower() in label.lower())
+    if hit:
         m = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', node)
         if m:
             x1, y1, x2, y2 = map(int, m.groups())
@@ -130,36 +134,79 @@ tap "Continue"; shot 03_onboarding 2
 tap "Get started"; shot 04_permission 2
 sleep 3
 shot 05_home 2
-tap "Start scan"
-shot 06_scanning 3
+tap "Start recovery"; shot 06_choice 2
+tap "Scan for everything"
+shot 07_scanning 3
 sleep 20
-shot 07_scan_done
-tap "See what came back"; shot 08_results 4
-tap "Select all"; shot 09_selected 2
+shot 08_scan_done
+tap "See what came back"; shot 09_results 4
+tap "Select all"; shot 10_selected 2
 tap "Recover"
-shot 10_recovering 1
+shot 11_recovering 1
 sleep 8
-shot 11_recovered
+shot 12_recovered
 adb shell ls -la "/sdcard/DCIM/Photos\ Recovery" "/sdcard/Documents/Photos\ Recovery" "/sdcard/Music/Photos\ Recovery" > "$OUT/restored_files.txt" 2>&1
 cat "$OUT/restored_files.txt" | tee -a "$LOG"
 tap "Done"; sleep 2
-tap "Files"; shot 12_files 3
-tap "Videos"; shot 13_videos 3
+tap "Files"; shot 13_files 3
+tap "Videos"; shot 14_videos 3
 adb shell input keyevent KEYCODE_BACK; sleep 2
-shot 14_home_after 2
+shot 15_home_after 2
+tap "Start recovery"; sleep 2
 tap "Deep"; sleep 1
-tap "Start scan"
+tap "Scan for everything"
 sleep 30
-shot 15_deep_done
-tap "See what came back"; shot 16_deep_results 4
-tap "Thumbnail"; shot 17_thumbs 3
+shot 16_deep_done
+tap "See what came back"; shot 17_deep_results 4
+tap "Thumbnail"; shot 18_thumbs 3
 adb shell input keyevent KEYCODE_BACK; sleep 2
-tap "Restored files"; shot 18_restored 4
+tap "Restored" 4 exact; shot 19_restored_tab 4
+tap "Tools" 4 exact; shot 20_tools 3
+tap "Memory card"; shot 21_card 3
 adb shell input keyevent KEYCODE_BACK; sleep 2
-tap "Settings"; shot 19_settings 3
-tap "Light"; shot 20_light 3
+tap "Cloud bins"; shot 22_cloud 3
 adb shell input keyevent KEYCODE_BACK; sleep 2
-shot 21_home_light 2
+tap "Vault" 4 exact; shot 23_vault_intro 2
+tap "Set a passcode"; sleep 2
+for d in 1 2 3 4; do tap "$d" 2 exact; done; sleep 1
+for d in 1 2 3 4; do tap "$d" 2 exact; done; sleep 2
+shot 24_vault 2
+tap "Lock now"; shot 25_vault_locked 2
+for d in 1 2 3 4; do tap "$d" 2 exact; done; sleep 2
+shot 26_vault_open 2
+tap "Settings" 4 exact; shot 27_settings 3
+tap "Light"; shot 28_light 3
+
+# ---- other apps' folders through Shizuku (Android 11+ hides Android/data) ----
+TG=/sdcard/Android/data/org.telegram.messenger/cache
+adb shell mkdir -p $TG
+adb push "${PICS[18]}" "$TG/-6012345678_2041.jpg" >/dev/null && say "seeded $TG (only Shizuku can reach it)"
+adb push "${PICS[19]}" "$TG/5a1f0c9e2b7d" >/dev/null
+SZ=$(curl -sL https://api.github.com/repos/RikkaApps/Shizuku/releases/latest | python3 -c "import sys,json; print(next(a['browser_download_url'] for a in json.load(sys.stdin)['assets'] if a['name'].endswith('.apk')))" 2>/dev/null)
+say "shizuku: $SZ"
+if [ -n "$SZ" ] && curl -sL -o /tmp/shizuku.apk "$SZ" && adb install -r /tmp/shizuku.apk | tail -1 | tee -a "$LOG"; then
+  adb shell monkey -p moe.shizuku.privileged.api -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1; sleep 8
+  shot 30_shizuku_app 1
+  timeout 30 adb shell sh /sdcard/Android/data/moe.shizuku.privileged.api/start.sh > "$OUT/shizuku_start.txt" 2>&1
+  if ! grep -qi "info: shizuku_starter exit with 0\|started" "$OUT/shizuku_start.txt"; then
+    LIB=$(adb shell pm path moe.shizuku.privileged.api | head -1 | sed 's/package://; s/base.apk//' | tr -d '\r')
+    for abi in x86_64 x86 arm64; do timeout 30 adb shell "${LIB}lib/$abi/libshizuku.so" >> "$OUT/shizuku_start.txt" 2>&1 && break; done
+  fi
+  tail -5 "$OUT/shizuku_start.txt" | tee -a "$LOG"
+  sleep 4
+  adb shell am force-stop $PKG
+  adb shell am start -W -n $PKG/.MainActivity | tail -1 | tee -a "$LOG"
+  sleep 5
+  tap "Tools" 4 exact; sleep 1
+  tap "Inside apps"; shot 31_apps 3
+  tap "Allow access"; sleep 3; shot 32_shizuku_prompt 1
+  tap "Allow all the time" 3 || tap "Allow" 2
+  sleep 4; shot 33_apps_ready 1
+  tap "Scan inside apps"; sleep 30; shot 34_apps_scan
+  tap "See what came back"; shot 35_apps_results 4
+  tap "Inside apps"; shot 36_inside_apps 3
+  dump; grep -o 'Telegram' "$OUT/ui.xml" | head -1 | sed 's/^/found origin: /' | tee -a "$LOG"
+fi
 
 # A scan with animations on, for a look at the real motion (no taps needed).
 alive && { for k in window_animation_scale transition_animation_scale animator_duration_scale; do adb shell settings put global $k 1; done; }
