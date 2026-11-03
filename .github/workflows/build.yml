@@ -118,7 +118,7 @@ jobs:
         if: inputs.smoke
         run: |
           # room for the emulator image: drop toolchains this job never uses
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/lib/node_modules /usr/share/swift "$AGENT_TOOLSDIRECTORY" || true
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/share/swift /usr/local/.ghcup || true
           df -h / | tail -1
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
