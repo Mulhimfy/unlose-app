@@ -217,6 +217,8 @@ if [ -n "$SZ" ] && curl -sL -o /tmp/shizuku.apk "$SZ" && adb install -r /tmp/shi
   tap "Scan inside apps" 4 full; sleep 30; shot 34_apps_scan
   tap "See what came back"; shot 35_apps_results 4
   dump; say "inside-apps finds listed: $(grep -o 'Inside apps[^"]*' "$OUT/ui.xml" | head -1)"
+  adb shell ps -A | grep -i unlose | tee -a "$LOG"
+  adb shell ls -la "$TG" | tee -a "$LOG"
   tap "Inside apps"; shot 36_inside_apps 3
 fi
 
