@@ -241,6 +241,10 @@ elif [ "$SDK" -ge 30 ]; then
   # Android 11 keeps even adb out of Android/data: seed as root, then back to the normal shell.
   adb root >/dev/null 2>&1; sleep 4; adb wait-for-device
   seed_tg
+  # like a real app folder: group ext_data_rw, readable by the storage provider
+  adb shell chown -R 1023:1078 /data/media/0/Android/data/org.telegram.messenger
+  adb shell chmod -R 2775 /data/media/0/Android/data/org.telegram.messenger
+  adb shell ls -lR /data/media/0/Android/data/org.telegram.messenger | head -8 | tee -a "$LOG"
   adb unroot >/dev/null 2>&1; sleep 4; adb wait-for-device
   adb logcat -v time >> "$OUT/logcat_live.txt" 2>&1 &
   LOGCAT_PID=$!
