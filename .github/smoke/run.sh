@@ -197,17 +197,24 @@ fi
 SDK=$(adb shell getprop ro.build.version.sdk | tr -d '\r')
 say "sdk $SDK"
 TG=/sdcard/Android/data/org.telegram.messenger/cache
-adb shell mkdir -p $TG
-adb push "${PICS[18]}" "$TG/-6012345678_2041.jpg" >/dev/null && say "seeded $TG/-6012345678_2041.jpg"
-adb push "${PICS[19]}" "$TG/5a1f0c9e2b7d" >/dev/null && say "seeded $TG/5a1f0c9e2b7d (no name extension)"
+seed_tg() {
+  adb shell mkdir -p $TG
+  adb push "${PICS[18]}" "$TG/-6012345678_2041.jpg" >/dev/null && say "seeded $TG/-6012345678_2041.jpg"
+  adb push "${PICS[19]}" "$TG/5a1f0c9e2b7d" >/dev/null && say "seeded $TG/5a1f0c9e2b7d (no name extension)"
+}
+R="/sdcard/DCIM/Photos\ Recovery"
 apps_scan() {
   sleep 4; shot 35_apps_ready 1
   tap "Scan inside apps" 4 full; sleep 30; shot 36_apps_scan
   tap "See what came back"; shot 37_apps_results 4
-  dump; say "inside-apps finds listed: $(grep -o 'Inside apps[^"]*' "$OUT/ui.xml" | head -1)"
-  tap "Inside apps"; shot 38_inside_apps 3
+  BEFORE=$(adb shell ls "$R" 2>/dev/null | wc -l)
+  tap "Select all"; sleep 1
+  tap "Recover"; sleep 12; shot 38_apps_recovered
+  say "restored photos: $BEFORE before, $(adb shell ls "$R" 2>/dev/null | wc -l) after"
+  tap "Done"; sleep 1; tap "Maybe later" 2 full
 }
 if [ "$SDK" -ge 33 ]; then
+  seed_tg
   SZ=$(curl -sL https://api.github.com/repos/RikkaApps/Shizuku/releases/latest | python3 -c "import sys,json; print(next(a['browser_download_url'] for a in json.load(sys.stdin)['assets'] if a['name'].endswith('.apk')))" 2>/dev/null)
   say "shizuku: $SZ"
   if [ -n "$SZ" ] && curl -sL -o /tmp/shizuku.apk "$SZ" && adb install -r /tmp/shizuku.apk | tail -1 | tee -a "$LOG"; then
@@ -231,6 +238,12 @@ if [ "$SDK" -ge 33 ]; then
     apps_scan
   fi
 elif [ "$SDK" -ge 30 ]; then
+  # Android 11 keeps even adb out of Android/data: seed as root, then back to the normal shell.
+  adb root >/dev/null 2>&1; sleep 4; adb wait-for-device
+  seed_tg
+  adb unroot >/dev/null 2>&1; sleep 4; adb wait-for-device
+  adb logcat -v time >> "$OUT/logcat_live.txt" 2>&1 &
+  LOGCAT_PID=$!
   adb shell am force-stop $PKG
   adb shell am start -W -n $PKG/.MainActivity | tail -1 | tee -a "$LOG"
   sleep 5
