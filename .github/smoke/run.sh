@@ -120,6 +120,8 @@ for node in re.findall(r'<node [^>]*>', xml):
         m = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', node)
         if m:
             x1, y1, x2, y2 = map(int, m.groups())
+            if x2 - x1 < 4 or y2 - y1 < 4:
+                continue  # off screen (another tab, a scrolled-away row)
             print((x1 + x2) // 2, (y1 + y2) // 2)
             break
 PY
@@ -157,6 +159,7 @@ shot 12_recovered
 adb shell ls -la "/sdcard/DCIM/Photos\ Recovery" "/sdcard/Documents/Photos\ Recovery" "/sdcard/Music/Photos\ Recovery" > "$OUT/restored_files.txt" 2>&1
 cat "$OUT/restored_files.txt" | tee -a "$LOG"
 tap "Done"; sleep 2
+tap "Maybe later" 2 full; sleep 1
 tap "Files"; shot 13_files 3
 tap "Videos"; shot 14_videos 3
 adb shell input keyevent KEYCODE_BACK; sleep 2
