@@ -95,7 +95,8 @@ tap() {
     local b
     b=$(python3 - "$want" "$OUT/ui.xml" "$exact" <<'PY'
 import re, sys
-want, path, exact = sys.argv[1], sys.argv[2], sys.argv[3] == 'exact'
+want, path, mode = sys.argv[1], sys.argv[2], sys.argv[3]
+exact = mode == 'exact'
 try:
     xml = open(path, encoding='utf-8', errors='ignore').read()
 except OSError:
@@ -106,7 +107,15 @@ for node in re.findall(r'<node [^>]*>', xml):
     pkg = re.search(r' package="([^"]*)"', node)
     if exact and (pkg is None or pkg.group(1) != 'com.unlose.app'):
         continue
-    hit = (want in label.split()) if exact else (want.lower() in label.lower())
+    if mode == 'full':
+        # a button: its text or description is just the label (maybe repeated), not a sentence that mentions it
+        hit = False
+        for f in ((t.group(1) if t else ''), (d.group(1) if d else '')):
+            parts = [x.strip().lower() for x in f.split('&#10;') if x.strip()]
+            if parts and all(x == want.lower() for x in parts):
+                hit = True
+    else:
+        hit = (want in label.split()) if exact else (want.lower() in label.lower())
     if hit:
         m = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', node)
         if m:
@@ -135,7 +144,7 @@ tap "Get started"; shot 04_permission 2
 sleep 3
 shot 05_home 2
 tap "Start recovery"; shot 06_choice 2
-tap "Scan for everything"
+tap "Scan for everything" 4 full
 shot 07_scanning 3
 sleep 20
 shot 08_scan_done
@@ -154,7 +163,7 @@ adb shell input keyevent KEYCODE_BACK; sleep 2
 shot 15_home_after 2
 tap "Start recovery"; sleep 2
 tap "Deep"; sleep 1
-tap "Scan for everything"
+tap "Scan for everything" 4 full
 sleep 30
 shot 16_deep_done
 tap "See what came back"; shot 17_deep_results 4
@@ -199,13 +208,13 @@ if [ -n "$SZ" ] && curl -sL -o /tmp/shizuku.apk "$SZ" && adb install -r /tmp/shi
   sleep 5
   tap "Tools" 4 exact; sleep 1
   tap "Inside apps"; shot 31_apps 3
-  tap "Allow access"; sleep 3; shot 32_shizuku_prompt 1
-  tap "Allow all the time" 3 || tap "Allow" 2
+  tap "Allow access" 4 full; sleep 4; shot 32_shizuku_prompt 1
+  tap "Allow all the time" 3 full || tap "Allow" 3 full
   sleep 4; shot 33_apps_ready 1
-  tap "Scan inside apps"; sleep 30; shot 34_apps_scan
+  tap "Scan inside apps" 4 full; sleep 30; shot 34_apps_scan
   tap "See what came back"; shot 35_apps_results 4
+  dump; say "inside-apps finds listed: $(grep -o 'Inside apps[^"]*' "$OUT/ui.xml" | head -1)"
   tap "Inside apps"; shot 36_inside_apps 3
-  dump; grep -o 'Telegram' "$OUT/ui.xml" | head -1 | sed 's/^/found origin: /' | tee -a "$LOG"
 fi
 
 # A scan with animations on, for a look at the real motion (no taps needed).

@@ -92,7 +92,7 @@ jobs:
       - name: Card recovery tests
         working-directory: app
         run: |
-          sudo apt-get -qq update > /dev/null && sudo apt-get -qq install -y exfatprogs dosfstools > /dev/null
+          sudo apt-get -qq update > /dev/null && sudo apt-get -qq install -y exfatprogs dosfstools ffmpeg > /dev/null
           IMG=$(mktemp -d)
           if bash tool/card_images.sh "$IMG" test_preview/fixtures/photos > ../out/card_images.txt 2>&1; then
             cd android
