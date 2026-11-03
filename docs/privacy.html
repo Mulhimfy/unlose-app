@@ -4,13 +4,16 @@
 <body><div class="wrap">
 <nav><img src="assets/icon.png" alt=""><a href="index.html"><b style="color:var(--text)">Photos Recovery</b></a><span class="sp"></span><a class="l" href="support.html">Support</a></nav>
 <h1>Privacy policy</h1>
-<p class="muted">Effective 2 November 2026 · applies to the Photos Recovery app for Android (com.unlose.app), made by Mulhimfy.</p>
+<p class="muted">Effective 3 November 2026 · applies to the Photos Recovery app for Android (com.unlose.app), made by Mulhimfy.</p>
 <div class="legal">
 <h2>In short</h2>
 <p>Photos Recovery collects no personal data. It has no internet permission, so nothing it reads can leave your phone through it. There is no account, no analytics, no advertising and no advertising ID.</p>
 <h2>What the app reads, and why</h2>
 <ul>
 <li><b>Files on your phone's shared storage.</b> To find deleted photos, videos, audio and documents, The app reads recycle bins, thumbnail caches, hidden folders and cache files on your device and on inserted SD cards. This needs Android's "All files access" permission on Android 11 and later, or the storage permissions on Android 10 and earlier. It asks for it only to show you what can be recovered.</li>
+<li><b>Memory cards and USB sticks (optional).</b> When you connect a card reader or USB stick and tap Scan, Android asks you to allow access to that device. The app then reads the card's sectors (read only) to find deleted files. Nothing on the card is changed.</li>
+<li><b>Other apps' folders (optional, Android 11 and later).</b> If you install Shizuku and allow Photos Recovery in it, the app lists and reads files in other apps' Android/data folders (for example cached chat photos) to show what can be recovered. It never changes or deletes them. You can withdraw this in Shizuku at any time.</li>
+<li><b>Your gallery (optional).</b> When you add photos or videos to the private vault, the app lists your gallery so you can pick them.</li>
 <li>Reading happens entirely on your device. Previews are made on the device and kept only in the app's memory and private cache.</li>
 </ul>
 <h2>What the app writes</h2>
@@ -18,14 +21,16 @@
 <li>When you choose to recover files, the app saves new copies into folders named "Photos Recovery" (DCIM/Photos Recovery for photos and videos, Music/Photos Recovery for audio, Documents/Photos Recovery for other files). It never edits or deletes the files it finds.</li>
 <li>"Put back" asks Android to take items out of its own trash; Android shows its confirmation first.</li>
 <li>In "Restored files", you can delete copies the app made, after a confirmation.</li>
-<li>Your settings (theme, scan options) are stored in the app's private storage on your device. App backup is turned off.</li>
+<li><b>Private vault.</b> Photos and videos you put in the vault are copied into the app's private storage, where other apps and the gallery cannot see them. If you choose "Move", the originals are deleted from your gallery after the copy is made. Vault files never leave your device through this app.</li>
+<li>Your vault passcode and album passcodes are stored only as salted hashes in the app's private storage. Fingerprint or face unlock is handled by Android; the app never receives your fingerprint or face data.</li>
+<li>Your settings (theme, scan options) are stored in the app's private storage on your device. Cloud backup is turned off. When you move to a new phone with Android's device-to-device transfer, the vault and its settings can move with it.</li>
 </ul>
 <h2>Data shared with others</h2>
 <p>None. The app does not sell, share or transfer any data. It contains no third-party analytics, advertising or tracking libraries. If you choose to share a recovered file, Android's share sheet sends it to the app you pick.</p>
 <h2>Children</h2>
 <p>Photos Recovery is a general utility and is not directed at children under 13.</p>
 <h2>Deleting your data</h2>
-<p>The app keeps no data about you. Uninstalling the app removes its settings and cache. Files you recovered stay in the Photos Recovery folders until you delete them.</p>
+<p>The app keeps no data about you. Uninstalling the app removes its settings, its cache and the private vault (save vault files to your gallery first). Files you recovered stay in the Photos Recovery folders until you delete them.</p>
 <h2>Changes and contact</h2>
 <p>If this policy changes, the new version will be posted on this page with a new date. Questions: <a href="mailto:ahmeddevyfy@gmail.com">ahmeddevyfy@gmail.com</a>.</p>
 </div>
