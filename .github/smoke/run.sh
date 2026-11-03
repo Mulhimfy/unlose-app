@@ -12,6 +12,7 @@ mkdir -p "$OUT"
 LOG="$OUT/steps.txt"
 say() { echo "$*" | tee -a "$LOG"; }
 
+MODE=${MODE:-full}   # full: everything; apps: onboarding + the app-folder scan only
 adb wait-for-device
 # Logcat streams to a file from the start, so a freeze or crash still leaves its last lines.
 adb logcat -v time > "$OUT/logcat_live.txt" 2>&1 &
@@ -143,6 +144,7 @@ shot 01_onboarding 8
 tap "Continue"; shot 02_onboarding 2
 tap "Continue"; shot 03_onboarding 2
 tap "Get started"; shot 04_permission 2
+if [ "$MODE" = full ]; then
 sleep 3
 shot 05_home 2
 tap "Start recovery"; shot 06_choice 2
@@ -189,54 +191,58 @@ shot 26_vault_open 2
 tap "Settings" 4 exact; shot 27_settings 3
 tap "Light"; shot 28_light 3
 
-# ---- other apps' folders through Shizuku (Android 11+ hides Android/data) ----
+fi
+
+# ---- other apps' folders (Android/data): direct on 10-, folder grant on 11-12, Shizuku on 13+ ----
+SDK=$(adb shell getprop ro.build.version.sdk | tr -d '\r')
+say "sdk $SDK"
 TG=/sdcard/Android/data/org.telegram.messenger/cache
 adb shell mkdir -p $TG
-adb push "${PICS[18]}" "$TG/-6012345678_2041.jpg" >/dev/null && say "seeded $TG (only Shizuku can reach it)"
-adb push "${PICS[19]}" "$TG/5a1f0c9e2b7d" >/dev/null
-SZ=$(curl -sL https://api.github.com/repos/RikkaApps/Shizuku/releases/latest | python3 -c "import sys,json; print(next(a['browser_download_url'] for a in json.load(sys.stdin)['assets'] if a['name'].endswith('.apk')))" 2>/dev/null)
-say "shizuku: $SZ"
-if [ -n "$SZ" ] && curl -sL -o /tmp/shizuku.apk "$SZ" && adb install -r /tmp/shizuku.apk | tail -1 | tee -a "$LOG"; then
-  adb shell monkey -p moe.shizuku.privileged.api -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1; sleep 8
-  shot 30_shizuku_app 1
-  timeout 30 adb shell sh /sdcard/Android/data/moe.shizuku.privileged.api/start.sh > "$OUT/shizuku_start.txt" 2>&1
-  if ! grep -qi "info: shizuku_starter exit with 0\|started" "$OUT/shizuku_start.txt"; then
-    LIB=$(adb shell pm path moe.shizuku.privileged.api | head -1 | sed 's/package://; s/base.apk//' | tr -d '\r')
-    for abi in x86_64 x86 arm64; do timeout 30 adb shell "${LIB}lib/$abi/libshizuku.so" >> "$OUT/shizuku_start.txt" 2>&1 && break; done
+adb push "${PICS[18]}" "$TG/-6012345678_2041.jpg" >/dev/null && say "seeded $TG/-6012345678_2041.jpg"
+adb push "${PICS[19]}" "$TG/5a1f0c9e2b7d" >/dev/null && say "seeded $TG/5a1f0c9e2b7d (no name extension)"
+apps_scan() {
+  sleep 4; shot 35_apps_ready 1
+  tap "Scan inside apps" 4 full; sleep 30; shot 36_apps_scan
+  tap "See what came back"; shot 37_apps_results 4
+  dump; say "inside-apps finds listed: $(grep -o 'Inside apps[^"]*' "$OUT/ui.xml" | head -1)"
+  tap "Inside apps"; shot 38_inside_apps 3
+}
+if [ "$SDK" -ge 33 ]; then
+  SZ=$(curl -sL https://api.github.com/repos/RikkaApps/Shizuku/releases/latest | python3 -c "import sys,json; print(next(a['browser_download_url'] for a in json.load(sys.stdin)['assets'] if a['name'].endswith('.apk')))" 2>/dev/null)
+  say "shizuku: $SZ"
+  if [ -n "$SZ" ] && curl -sL -o /tmp/shizuku.apk "$SZ" && adb install -r /tmp/shizuku.apk | tail -1 | tee -a "$LOG"; then
+    adb shell monkey -p moe.shizuku.privileged.api -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1; sleep 8
+    shot 30_shizuku_app 1
+    timeout 30 adb shell sh /sdcard/Android/data/moe.shizuku.privileged.api/start.sh > "$OUT/shizuku_start.txt" 2>&1
+    if ! grep -qi "exit with 0" "$OUT/shizuku_start.txt"; then
+      LIB=$(adb shell pm path moe.shizuku.privileged.api | head -1 | sed 's/package://; s/base.apk//' | tr -d '\r')
+      for abi in x86_64 x86 arm64; do timeout 30 adb shell "${LIB}lib/$abi/libshizuku.so" >> "$OUT/shizuku_start.txt" 2>&1 && break; done
+    fi
+    tail -3 "$OUT/shizuku_start.txt" | tee -a "$LOG"
+    say "adb shell sees Android/data: $(adb shell ls /sdcard/Android/data 2>&1 | head -3 | tr '\n' ' ')"
+    sleep 4
+    adb shell am force-stop $PKG
+    adb shell am start -W -n $PKG/.MainActivity | tail -1 | tee -a "$LOG"
+    sleep 5
+    tap "Tools" 4 exact; sleep 1
+    tap "Inside apps"; shot 31_apps 3
+    tap "Allow access" 4 full; sleep 4; shot 32_shizuku_prompt 1
+    tap "Allow all the time" 3 full || tap "Allow" 3 full
+    apps_scan
   fi
-  tail -5 "$OUT/shizuku_start.txt" | tee -a "$LOG"
-  sleep 4
+elif [ "$SDK" -ge 30 ]; then
   adb shell am force-stop $PKG
   adb shell am start -W -n $PKG/.MainActivity | tail -1 | tee -a "$LOG"
   sleep 5
   tap "Tools" 4 exact; sleep 1
   tap "Inside apps"; shot 31_apps 3
-  tap "Allow access" 4 full; sleep 4; shot 32_shizuku_prompt 1
-  tap "Allow all the time" 3 full || tap "Allow" 3 full
-  sleep 4; shot 33_apps_ready 1
-  tap "Scan inside apps" 4 full; sleep 30; shot 34_apps_scan
-  tap "See what came back"; shot 35_apps_results 4
-  dump; say "inside-apps finds listed: $(grep -o 'Inside apps[^"]*' "$OUT/ui.xml" | head -1)"
-  adb shell ps -A | grep -i unlose | tee -a "$LOG"
-  adb shell ls -la "$TG" | tee -a "$LOG"
-  # What the Shizuku file service can see, next to what adb's shell sees.
-  FP=$(adb shell pidof com.unlose.app:files | tr -d '\r')
-  {
-    echo "--- adb shell"; adb shell id; adb shell cat /proc/self/status | grep -E "^(Uid|Gid|Groups)"
-    adb shell readlink /proc/self/ns/mnt
-    for d in /storage/emulated/0/Android/data /mnt/user/0/emulated/0/Android/data /data/media/0/Android/data /mnt/runtime/full/emulated/0/Android/data; do echo "ls $d: $(adb shell ls $d 2>&1 | head -3 | tr '\n' ' ')"; done
-    echo "--- file service pid $FP"
-    adb shell cat /proc/$FP/status | grep -E "^(Uid|Gid|Groups)"
-    adb shell readlink /proc/$FP/ns/mnt
-    adb shell cat /proc/$FP/attr/current; echo
-    adb shell cat /proc/$FP/mountinfo | grep -E "storage|emulated|/mnt/user|media" | head -20
-    SP=$(adb shell pidof shizuku_server | tr -d '\r')
-    echo "--- shizuku_server pid $SP"
-    adb shell cat /proc/$SP/status | grep -E "^(Uid|Gid|Groups)"
-    adb shell readlink /proc/$SP/ns/mnt
-  } > "$OUT/shizuku_probe.txt" 2>&1
-  tap "Inside apps"; shot 36_inside_apps 3
+  tap "Allow access" 4 full; sleep 5; shot 32_folder_picker 1
+  tap "Use this folder" 4 full; sleep 3; shot 33_folder_confirm 1
+  tap "Allow" 4 full; sleep 3
+  apps_scan
 fi
+adb shell ps -A | grep -i unlose | tee -a "$LOG"
+grep -E "PhotosRecovery" "$OUT/logcat_live.txt" | tail -12 >> "$LOG" || true
 
 # A scan with animations on, for a look at the real motion (no taps needed).
 alive && { for k in window_animation_scale transition_animation_scale animator_duration_scale; do adb shell settings put global $k 1; done; }
